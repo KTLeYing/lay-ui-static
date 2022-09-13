@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+    <title>管理后台</title>
+    <link rel="icon" href="favicon.ico" type="image/ico">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/materialdesignicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="js/bootstrap-multitabs/multitabs.min.css">
+    <link href="css/style.min.css" rel="stylesheet">
+</head>
+
+<body>
+<div class="lyear-layout-web">
+    <div class="lyear-layout-container">
+        <!--左侧导航-->
+        <aside class="lyear-layout-sidebar">
+
+            <!-- logo -->
+            <div id="logo" class="sidebar-header">
+            </div>
+            <div class="lyear-layout-sidebar-scroll">
+                <div style="text-align:center;padding:10px 5px 5px;">
+                    <h3>并账系统</h3>
+                </div>
+                <nav class="sidebar-main">
+                    <ul id="menu-container" class="nav nav-drawer">
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+        <!--End 左侧导航-->
+
+        <!--头部信息-->
+        <!--页面主要内容-->
+        <main class="lyear-layout-content">
+            <div id="iframe-content"></div>
+        </main>
+        <!--End 页面主要内容-->
+    </div>
+</div>
+
+<script type="text/javascript" src="js/jquery.min.js"></script>
+<script type="text/javascript" src="js/bootstrap.min.js"></script>
+<script type="text/javascript" src="js/perfect-scrollbar.min.js"></script>
+<script type="text/javascript" src="js/bootstrap-multitabs/multitabs.js"></script>
+<script type="text/javascript" src="js/index.min.js"></script>
+<script type="text/javascript" src="js/axios.min.js"></script>
+<script type="text/javascript" src="js/u2f-axios-interceptor.js"></script>
+<script>
+
+    /**
+     * 渲染账户名
+     */
+    function renderAccount(account) {
+        $("#account-name").text(account)
+    }
+
+    function renderMenu(menu, parent) {
+        let isRoot = !parent;
+        parent = parent || $("#menu-container")
+        for (let item of menu) {
+            if (item.children && item.children.length) {
+                let elm = $(`
+                        <li class="nav-item nav-item-has-subnav">
+                        <a href="javascript:void(0)"><i class="` + item.url + `"></i> <span>` + item.name + `</span></a>
+                        </li>
+                `)
+                let subMenu = $(`
+                        <ul class="nav nav-subnav"></ul>
+                `)
+                elm.appendTo(parent);
+                subMenu.appendTo(elm);
+                renderMenu(item.children, subMenu);
+                continue;
+            }
+            let subMenuItem;
+            if (isRoot) {
+                subMenuItem = $(`<li class="nav-item active"><a class="multitabs" href="` + item.url + `"><i class="mdi mdi-home"></i> <span>` + item.name + `</span></a></li>`);
+            } else {
+                subMenuItem = $(`<li><a class="multitabs" href="` + item.url + `">` + item.name + `</a></li>`);
+            }
+            subMenuItem.appendTo(parent);
+        }
+    }
+
+    /**
+     * Main Render Logic
+     */
+    function render(account, menu) {
+        renderAccount(account)
+        renderMenu(menu)
+    }
+
+    /**
+     * init request
+     */
+    $(document).ready(function () {
+        // 初始化页面
+        let account = getCookie("username");
+        Promise.all([loadMenu("/menuList")]).then(function (_menu) {
+            let menu = [].concat.apply([], _menu)
+
+            render(account, menu)
+        })
+    })
+
+    function loadMenu(url, domain, prefix) {
+        return new Promise((res, rej) => {
+            $.ajax({
+                url: domain ? domain + url : url,
+                xhrFields: {
+                    withCredentials: true
+                }
+            }).done(function (data) {
+                if (data.code == 0) {
+                    res(data.data.map(function (menu) {
+                        if (domain) {
+                            menu.url = domain + (prefix || "") + menu.url
+                        }
+                        return menu
+                    }))
+                } else if (data.code == 1001) {
+                    //重新登录
+                    window.location.replace(window.location.origin)
+                }
+            }).fail(function (err) {
+                if (domain) {
+                    location.href = domain + "/redirect?to=" + encodeURIComponent(location.href)
+                } else {
+                    location.href = "/redirect?to=" + encodeURIComponent(location.href)
+                }
+            })
+        })
+    }
+
+    function getCookie(name) {
+        const value = "; " + document.cookie;
+        const parts = value.split("; " + name + "=");
+        if (parts.length === 2) {
+            return parts.pop().split(';').shift();
+        }
+    }
+</script>
+</body>
+</html>
